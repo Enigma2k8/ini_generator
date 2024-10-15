@@ -3,23 +3,28 @@ import ast
 import configparser
 from pathlib import Path
 
-def extract_top_level_functions(file_path):
+def extract_top_level_definitions(file_path):
     with open(file_path, 'r') as file:
         tree = ast.parse(file.read(), filename=file_path)
     top_level_functions = [node.name for node in tree.body if isinstance(node, ast.FunctionDef)]
-    return top_level_functions
+    top_level_classes = [node.name for node in tree.body if isinstance(node, ast.ClassDef)]
+    return top_level_functions, top_level_classes
 
-def create_import_statements(functions_dict, globals_dict):
+def create_import_statements(definitions_dict, globals_dict):
     import_statements = []
     all_exports = []
     
-    for module, functions in functions_dict.items():
+    for module, definitions in definitions_dict.items():
         module_name = os.path.basename(module).replace(".py", "")
-        if functions:
+        functions, classes = definitions
+        if functions or classes:
             import_statement = f"from .{module_name} import (\n"
             for func in functions:
                 import_statement += f"    {func},\n"
                 all_exports.append(func)
+            for cls in classes:
+                import_statement += f"    {cls},\n"
+                all_exports.append(cls)
             if module_name in globals_dict:
                 for global_var in globals_dict[module_name]:
                     import_statement += f"    {global_var},\n"
@@ -29,8 +34,8 @@ def create_import_statements(functions_dict, globals_dict):
     
     return import_statements, all_exports
 
-def write_init(functions_dict, globals_dict, output_folder):
-    import_statements, all_exports = create_import_statements(functions_dict, globals_dict)
+def write_init(definitions_dict, globals_dict, output_folder):
+    import_statements, all_exports = create_import_statements(definitions_dict, globals_dict)
     
     init_file_path = os.path.join(output_folder, '__init__.py')
     
@@ -43,17 +48,17 @@ def write_init(functions_dict, globals_dict, output_folder):
         file.write("]\n")
 
 def process_files(files):
-    functions_dict = {}
+    definitions_dict = {}
     for file in files:
-        functions = extract_top_level_functions(file)
-        if functions:
-            functions_dict[file] = functions
-    return functions_dict
+        functions, classes = extract_top_level_definitions(file)
+        if functions or classes:
+            definitions_dict[file] = (functions, classes)
+    return definitions_dict
 
 # Adjust the script to handle relative paths
 script_dir = os.path.dirname(os.path.abspath(__file__))
 files = [
-    os.path.join(script_dir, ".py"),
+    os.path.join(script_dir, ".py")
 ]
 
 # Dictionary of globals to be included from specific modules
@@ -62,5 +67,5 @@ globals_dict = {
 }
 
 # Process files and write the __init__.py file
-functions_dict = process_files(files)
-write_init(functions_dict, globals_dict, script_dir)
+definitions_dict = process_files(files)
+write_init(definitions_dict, globals_dict, script_dir)
