@@ -1,3 +1,1 @@
-Add files in the same folder to be parsed.  
-Add globals.  
-Execute.  
+Place it in same folder as other python scripts that you wish to import classes functions and globals to an auto generated __ini__.py and run.
